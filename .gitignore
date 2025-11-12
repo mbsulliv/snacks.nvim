@@ -7,3 +7,9 @@
 foo.*
 node_modules
 tt.*
+
+# idutils
+GPATH
+GRTAGS
+GTAGS
+ID
