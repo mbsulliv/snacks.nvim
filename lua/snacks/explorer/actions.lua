@@ -9,9 +9,6 @@ local uv = vim.uv or vim.loop
 
 local M = {}
 
--- Re-entrance guard for M.update()
-local _updating = false
-
 ---@param path string
 function M.get_trash_cmds(path)
   ---@type string[][]
@@ -80,15 +77,6 @@ end
 ---@param picker snacks.Picker
 ---@param opts? {target?: boolean|string, refresh?: boolean}
 function M.update(picker, opts)
-  vim.notify("[DEBUG] M.update() called", vim.log.levels.INFO)
-
-  -- Re-entrance guard
-  if _updating then
-    vim.notify("[DEBUG] M.update() BLOCKED - already updating", vim.log.levels.WARN)
-    return
-  end
-  _updating = true
-
   opts = opts or {}
   local cwd = picker:cwd()
   local target = type(opts.target) == "string" and opts.target or nil --[[@as string]]
@@ -100,27 +88,21 @@ function M.update(picker, opts)
 
   -- when searching, restore explorer view first
   if picker.input.filter.meta.searching then
-    vim.notify("[DEBUG] M.update() detected searching mode, clearing filter...", vim.log.levels.WARN)
-    picker.input:pause(200)
+    picker.input:pause()
     picker.input:set("", "")
+    picker.input:resume()
     picker.list.win:focus()
     refresh = true
-    vim.notify("[DEBUG] M.update() finished clearing filter", vim.log.levels.INFO)
   end
 
   if not refresh and target then
-    vim.notify("[DEBUG] M.update() calling M.reveal() (no refresh)", vim.log.levels.INFO)
-    _updating = false
     return M.reveal(picker, target)
   end
   if opts.target ~= false then
     picker.list:set_target()
   end
-  vim.notify("[DEBUG] M.update() calling picker:find()", vim.log.levels.INFO)
   picker:find({
     on_done = function()
-      vim.notify("[DEBUG] M.update() picker:find() completed", vim.log.levels.INFO)
-      _updating = false
       if target then
         M.reveal(picker, target)
       end
@@ -335,25 +317,16 @@ function M.actions.explorer_del(picker)
 end
 
 function M.actions.confirm(picker, item, action)
-  vim.notify(string.format("[DEBUG CONFIRM] Called with item=%s, searching=%s",
-    item and (item.file or item.dir or "?") or "NIL",
-    tostring(picker.input.filter.meta.searching)), vim.log.levels.ERROR)
-
   if not item then
-    vim.notify("[DEBUG CONFIRM] No item, returning", vim.log.levels.ERROR)
     return
   elseif picker.input.filter.meta.searching then
-    vim.notify(string.format("[DEBUG CONFIRM] SEARCHING BRANCH: calling M.update with target=%s", item.file), vim.log.levels.ERROR)
     M.update(picker, { target = item.file })
   elseif item.dir then
-    vim.notify(string.format("[DEBUG CONFIRM] DIRECTORY BRANCH: toggling %s", item.file), vim.log.levels.ERROR)
     Tree:toggle(item.file)
     M.update(picker, { refresh = true })
   else
-    vim.notify(string.format("[DEBUG CONFIRM] FILE BRANCH: jumping to %s", item.file), vim.log.levels.ERROR)
     Snacks.picker.actions.jump(picker, item, action)
   end
-  vim.notify("[DEBUG CONFIRM] Completed", vim.log.levels.ERROR)
 end
 
 function M.actions.explorer_diagnostic(picker, item, action)

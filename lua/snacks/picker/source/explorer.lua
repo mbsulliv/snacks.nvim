@@ -68,28 +68,22 @@ function State.new(picker)
   end)
 
   picker.list.win:on("TabEnter", function(_, ev)
-    vim.notify("[DEBUG AUTOCMD] TabEnter fired", vim.log.levels.ERROR)
     local p = ref()
     if p and p:on_current_tab() then
-      vim.notify("[DEBUG AUTOCMD] TabEnter calling Actions.update()", vim.log.levels.ERROR)
       Actions.update(p)
     end
   end)
 
   picker.list.win:on("WinEnter", function(_, ev)
-    vim.notify("[DEBUG AUTOCMD] WinEnter fired", vim.log.levels.ERROR)
     local p = ref()
     if p then
-      vim.notify("[DEBUG AUTOCMD] WinEnter calling p._main:update()", vim.log.levels.ERROR)
       p._main:update()
     end
   end)
 
   picker.list.win:on("DirChanged", function(_, ev)
-    vim.notify(string.format("[DEBUG AUTOCMD] DirChanged fired: %s", ev.file), vim.log.levels.ERROR)
     local p = ref()
     if p then
-      vim.notify("[DEBUG AUTOCMD] DirChanged calling p:find()", vim.log.levels.ERROR)
       p:set_cwd(svim.fs.normalize(ev.file))
       p:find()
     end
@@ -170,19 +164,11 @@ function M.setup(opts)
       ---@param filter snacks.picker.Filter
       transform = function(picker, filter)
         local s = not filter:is_empty()
-        local pattern = filter.pattern or ""
-        vim.notify(string.format("[DEBUG TRANSFORM] Called: is_empty=%s, searching=%s→%s, pattern='%s'",
-          tostring(filter:is_empty()), tostring(searching), tostring(s), pattern), vim.log.levels.ERROR)
-
         if searching ~= s then
           searching = s
           filter.meta.searching = searching
-          -- Also update the original filter's meta to keep them in sync
-          picker.input.filter.meta.searching = searching
-          vim.notify(string.format("[DEBUG TRANSFORM] TOGGLED searching to %s, returning true", tostring(searching)), vim.log.levels.ERROR)
           return true
         end
-        vim.notify("[DEBUG TRANSFORM] No toggle, returning nil", vim.log.levels.ERROR)
       end,
     },
     formatters = {
