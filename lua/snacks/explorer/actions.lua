@@ -335,16 +335,25 @@ function M.actions.explorer_del(picker)
 end
 
 function M.actions.confirm(picker, item, action)
+  vim.notify(string.format("[DEBUG CONFIRM] Called with item=%s, searching=%s",
+    item and (item.file or item.dir or "?") or "NIL",
+    tostring(picker.input.filter.meta.searching)), vim.log.levels.ERROR)
+
   if not item then
+    vim.notify("[DEBUG CONFIRM] No item, returning", vim.log.levels.ERROR)
     return
   elseif picker.input.filter.meta.searching then
+    vim.notify(string.format("[DEBUG CONFIRM] SEARCHING BRANCH: calling M.update with target=%s", item.file), vim.log.levels.ERROR)
     M.update(picker, { target = item.file })
   elseif item.dir then
+    vim.notify(string.format("[DEBUG CONFIRM] DIRECTORY BRANCH: toggling %s", item.file), vim.log.levels.ERROR)
     Tree:toggle(item.file)
     M.update(picker, { refresh = true })
   else
+    vim.notify(string.format("[DEBUG CONFIRM] FILE BRANCH: jumping to %s", item.file), vim.log.levels.ERROR)
     Snacks.picker.actions.jump(picker, item, action)
   end
+  vim.notify("[DEBUG CONFIRM] Completed", vim.log.levels.ERROR)
 end
 
 function M.actions.explorer_diagnostic(picker, item, action)

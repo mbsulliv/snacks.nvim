@@ -5,6 +5,10 @@ local uv = vim.uv or vim.loop
 Async.BUDGET = 10
 local _id = 0
 
+-- DEBUG: Track find() calls for infinite loop detection
+local _debug_find_count = 0
+local _debug_find_last_reset = vim.loop.hrtime()
+
 ---@alias snacks.Picker.ref (fun():snacks.Picker?)|{value?: snacks.Picker}
 
 ---@class snacks.Picker
@@ -818,20 +822,42 @@ end
 --- based on the current pattern and search string.
 ---@param opts? { on_done?: fun(), refresh?: boolean }
 function M:find(opts)
+  -- DEBUG: Track find() calls
+  _debug_find_count = _debug_find_count + 1
+  local count = _debug_find_count
+  local now = vim.loop.hrtime()
+  local elapsed_ms = (now - _debug_find_last_reset) / 1000000
+  if elapsed_ms > 2000 then
+    _debug_find_last_reset = now
+    _debug_find_count = 1
+    count = 1
+  end
+  if count > 15 then
+    vim.notify(string.format("[DEBUG FIND %d] ⚠️⚠️  POSSIBLE INFINITE LOOP: %d find() calls in %.0fms!",
+      count, count, elapsed_ms), vim.log.levels.ERROR)
+  end
+
+  vim.notify(string.format("[DEBUG FIND %d] Called, refresh=%s, closed=%s",
+    count, tostring(opts and opts.refresh), tostring(self.closed)), vim.log.levels.ERROR)
+
   if self.closed then
+    vim.notify(string.format("[DEBUG FIND %d] Closed, returning", count), vim.log.levels.ERROR)
     return
   end
   opts = opts or {}
   local filter = self.input.filter:clone({ trim = true })
   local refresh = opts.refresh ~= false
+  vim.notify(string.format("[DEBUG FIND %d] Calling transform, refresh=%s", count, tostring(refresh)), vim.log.levels.ERROR)
   if filter.opts.transform then
     refresh = filter.opts.transform(self, filter) or refresh
   end
+  vim.notify(string.format("[DEBUG FIND %d] After transform, refresh=%s", count, tostring(refresh)), vim.log.levels.ERROR)
   self:hist_record()
 
   local finding = false
   if self.finder:init(filter) or refresh then
     finding = true
+    vim.notify(string.format("[DEBUG FIND %d] Running finder", count), vim.log.levels.ERROR)
     self:update_titles()
     if self:count() > 0 then
       -- pause rapid list updates to prevent flickering
@@ -842,6 +868,7 @@ function M:find(opts)
 
   -- re-run matcher if finder or pattern changed
   if self.matcher:init(filter.pattern) or finding then
+    vim.notify(string.format("[DEBUG FIND %d] Running matcher", count), vim.log.levels.ERROR)
     self.matcher:run(self)
     if opts.on_done then
       if self.matcher.task:running() then
@@ -855,6 +882,7 @@ function M:find(opts)
 
     self:progress()
   end
+  vim.notify(string.format("[DEBUG FIND %d] Completed", count), vim.log.levels.ERROR)
 end
 
 --- Get the active filter
