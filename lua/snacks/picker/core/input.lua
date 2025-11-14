@@ -67,7 +67,7 @@ function M.new(picker)
     { "TextChangedI", "TextChanged" },
     Snacks.util.throttle(function()
       local input = ref()
-      if not input or not input.win:valid() then
+      if not input or not input.win:valid() or input.paused then
         return
       end
       vim.bo[input.win.buf].modified = false
@@ -186,6 +186,10 @@ function M:pause(ms)
     self.paused = false
     self:update()
   end, ms or 100)
+end
+
+function M:resume()
+  self.paused = false
 end
 
 ---@param pattern? string
