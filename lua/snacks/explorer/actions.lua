@@ -88,6 +88,7 @@ function M.update(picker, opts)
 
   -- when searching, restore explorer view first
   if picker.input.filter.meta.searching then
+    picker.input:pause(200)
     picker.input:set("", "")
     picker.list.win:focus()
     refresh = true

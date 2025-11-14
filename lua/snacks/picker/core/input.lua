@@ -67,7 +67,7 @@ function M.new(picker)
     { "TextChangedI", "TextChanged" },
     Snacks.util.throttle(function()
       local input = ref()
-      if not input or not input.win:valid() then
+      if not input or not input.win:valid() or input.paused then
         return
       end
       vim.bo[input.win.buf].modified = false
