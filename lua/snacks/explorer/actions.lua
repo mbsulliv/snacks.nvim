@@ -9,6 +9,9 @@ local uv = vim.uv or vim.loop
 
 local M = {}
 
+-- Re-entrance guard for M.update()
+local _updating = false
+
 ---@param path string
 function M.get_trash_cmds(path)
   ---@type string[][]
@@ -78,6 +81,14 @@ end
 ---@param opts? {target?: boolean|string, refresh?: boolean}
 function M.update(picker, opts)
   vim.notify("[DEBUG] M.update() called", vim.log.levels.INFO)
+
+  -- Re-entrance guard
+  if _updating then
+    vim.notify("[DEBUG] M.update() BLOCKED - already updating", vim.log.levels.WARN)
+    return
+  end
+  _updating = true
+
   opts = opts or {}
   local cwd = picker:cwd()
   local target = type(opts.target) == "string" and opts.target or nil --[[@as string]]
@@ -99,6 +110,7 @@ function M.update(picker, opts)
 
   if not refresh and target then
     vim.notify("[DEBUG] M.update() calling M.reveal() (no refresh)", vim.log.levels.INFO)
+    _updating = false
     return M.reveal(picker, target)
   end
   if opts.target ~= false then
@@ -108,6 +120,7 @@ function M.update(picker, opts)
   picker:find({
     on_done = function()
       vim.notify("[DEBUG] M.update() picker:find() completed", vim.log.levels.INFO)
+      _updating = false
       if target then
         M.reveal(picker, target)
       end

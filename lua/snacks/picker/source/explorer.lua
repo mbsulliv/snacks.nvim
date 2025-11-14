@@ -167,6 +167,8 @@ function M.setup(opts)
         if searching ~= s then
           searching = s
           filter.meta.searching = searching
+          -- Also update the original filter's meta to keep them in sync
+          picker.input.filter.meta.searching = searching
           return true
         end
       end,
