@@ -67,7 +67,7 @@ function M.new(picker)
     { "TextChangedI", "TextChanged" },
     Snacks.util.throttle(function()
       local input = ref()
-      if not input or not input.win:valid() or input.paused then
+      if not input or not input.win:valid() then
         return
       end
       vim.bo[input.win.buf].modified = false
@@ -188,20 +188,25 @@ function M:pause(ms)
   end, ms or 100)
 end
 
-function M:resume()
-  self.paused = false
-end
-
 ---@param pattern? string
 ---@param search? string
 function M:set(pattern, search)
   self.filter.pattern = pattern or self.filter.pattern
   self.filter.search = search or self.filter.search
+
+  -- Prevent TextChanged events from triggering while we modify the buffer
+  local ei = vim.o.eventignore
+  vim.o.eventignore = "TextChanged,TextChangedI"
+
   vim.api.nvim_buf_set_lines(self.win.buf, 0, -1, false, {
     self.picker.opts.live and self.filter.search or self.filter.pattern,
   })
   vim.bo[self.win.buf].modified = false
   vim.api.nvim_win_set_cursor(self.win.win, { 1, #self:get() + 1 })
+
+  -- Restore original eventignore
+  vim.o.eventignore = ei
+
   self.totals = ""
   self.win.opts.wo.statuscolumn = ""
   self:update()
