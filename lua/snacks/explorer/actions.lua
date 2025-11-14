@@ -77,6 +77,7 @@ end
 ---@param picker snacks.Picker
 ---@param opts? {target?: boolean|string, refresh?: boolean}
 function M.update(picker, opts)
+  vim.notify("[DEBUG] M.update() called", vim.log.levels.INFO)
   opts = opts or {}
   local cwd = picker:cwd()
   local target = type(opts.target) == "string" and opts.target or nil --[[@as string]]
@@ -88,20 +89,25 @@ function M.update(picker, opts)
 
   -- when searching, restore explorer view first
   if picker.input.filter.meta.searching then
+    vim.notify("[DEBUG] M.update() detected searching mode, clearing filter...", vim.log.levels.WARN)
     picker.input:pause(200)
     picker.input:set("", "")
     picker.list.win:focus()
     refresh = true
+    vim.notify("[DEBUG] M.update() finished clearing filter", vim.log.levels.INFO)
   end
 
   if not refresh and target then
+    vim.notify("[DEBUG] M.update() calling M.reveal() (no refresh)", vim.log.levels.INFO)
     return M.reveal(picker, target)
   end
   if opts.target ~= false then
     picker.list:set_target()
   end
+  vim.notify("[DEBUG] M.update() calling picker:find()", vim.log.levels.INFO)
   picker:find({
     on_done = function()
+      vim.notify("[DEBUG] M.update() picker:find() completed", vim.log.levels.INFO)
       if target then
         M.reveal(picker, target)
       end

@@ -10,6 +10,11 @@ M.__index = M
 
 local ns = vim.api.nvim_create_namespace("snacks.picker.input")
 
+-- DEBUG: Counter for tracking TextChanged calls
+local _debug_text_changed_count = 0
+local _debug_last_reset_time = vim.loop.hrtime()
+local _debug_calls_since_reset = 0
+
 ---@param picker snacks.Picker
 function M.new(picker)
   local self = setmetatable({}, M)
@@ -67,7 +72,29 @@ function M.new(picker)
     { "TextChangedI", "TextChanged" },
     Snacks.util.throttle(function()
       local input = ref()
+      _debug_text_changed_count = _debug_text_changed_count + 1
+      local count = _debug_text_changed_count
+
+      -- DEBUG: Check for rapid repeated calls (potential infinite loop)
+      local now = vim.loop.hrtime()
+      local elapsed_ms = (now - _debug_last_reset_time) / 1000000
+      if elapsed_ms > 2000 then  -- Reset every 2 seconds
+        _debug_last_reset_time = now
+        _debug_calls_since_reset = 0
+      end
+      _debug_calls_since_reset = _debug_calls_since_reset + 1
+      if _debug_calls_since_reset > 10 then
+        vim.notify(string.format("[DEBUG %d] ⚠️  POSSIBLE INFINITE LOOP: %d calls in %.0fms!",
+          count, _debug_calls_since_reset, elapsed_ms), vim.log.levels.ERROR)
+      end
+
+      -- DEBUG: Log TextChanged event
+      local paused_str = input and (input.paused and "PAUSED" or "NOT_PAUSED") or "NO_INPUT"
+      local pattern_str = input and input:get() or "N/A"
+      vim.notify(string.format("[DEBUG %d] TextChanged fired: %s, pattern='%s'", count, paused_str, pattern_str), vim.log.levels.INFO)
+
       if not input or not input.win:valid() or input.paused then
+        vim.notify(string.format("[DEBUG %d] TextChanged BLOCKED (paused=%s)", count, tostring(input and input.paused)), vim.log.levels.WARN)
         return
       end
       vim.bo[input.win.buf].modified = false
@@ -86,6 +113,7 @@ function M.new(picker)
         input.filter.pattern = pattern
       end
       vim.schedule(function()
+        vim.notify(string.format("[DEBUG %d] Calling picker:find() from TextChanged", count), vim.log.levels.INFO)
         input.picker:find({ refresh = false })
       end)
     end, { ms = picker.opts.live and 200 or 30 }),
@@ -181,21 +209,28 @@ function M:get()
 end
 
 function M:pause(ms)
+  local duration = ms or 100
+  vim.notify(string.format("[DEBUG] pause() called with duration=%dms", duration), vim.log.levels.INFO)
   self.paused = true
   vim.defer_fn(function()
+    vim.notify(string.format("[DEBUG] pause() auto-unpause after %dms", duration), vim.log.levels.INFO)
     self.paused = false
     self:update()
-  end, ms or 100)
+  end, duration)
 end
 
 ---@param pattern? string
 ---@param search? string
 function M:set(pattern, search)
+  vim.notify(string.format("[DEBUG] set() called: pattern='%s', search='%s', paused=%s",
+    tostring(pattern), tostring(search), tostring(self.paused)), vim.log.levels.INFO)
+
   self.filter.pattern = pattern or self.filter.pattern
   self.filter.search = search or self.filter.search
 
   -- Prevent TextChanged events from triggering while we modify the buffer
   local ei = vim.o.eventignore
+  vim.notify(string.format("[DEBUG] set() setting eventignore (was: '%s')", ei), vim.log.levels.INFO)
   vim.o.eventignore = "TextChanged,TextChangedI"
 
   vim.api.nvim_buf_set_lines(self.win.buf, 0, -1, false, {
@@ -206,6 +241,7 @@ function M:set(pattern, search)
 
   -- Restore original eventignore
   vim.o.eventignore = ei
+  vim.notify(string.format("[DEBUG] set() restored eventignore to '%s'", ei), vim.log.levels.INFO)
 
   self.totals = ""
   self.win.opts.wo.statuscolumn = ""
